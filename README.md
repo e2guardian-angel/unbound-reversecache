@@ -1,5 +1,9 @@
 # pythonunbound
-A simple Dockerfile that builds Unbound `--with-pythonmodule` support and includes a simple Hello World style Python # module to demonstrate the `--with-pythonmodule` functionality using Python 3.6.
+Note: I just started this so it is not developed at all yet.
+
+This is based off of NLnetLabs/pythonunbound.
+
+A simple Dockerfile that builds Unbound --with-pythonmodule support and includes a python module that will store user lookups in a reverse cache in redis. This will be used by a squid external acl to determine what hostname is associated with the destination IP in a client request. This is to solve the problem of squid's dstdomain feature, which will normally attempt a (very unreliable) reverse DNS lookup when a client application is being proxied transparently. The idea being that if the client and squid are using the same DNS server, then the DNS server should be able to tell squid what hostname was associated with the DNS reply to the client's requests. This way squid can better handle acls that act on domains.
 
 # Hello World
 ```
