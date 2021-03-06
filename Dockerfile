@@ -16,6 +16,7 @@ apt-get install --no-install-recommends -y \
 	libssl-dev \
 	python3.7 \
 	python3-distutils \
+	python3-redis \
 	rsyslog \
 	swig \
 	vim \
