@@ -40,7 +40,7 @@ def logDnsMsg(qstate):
                         hostName = rk.dname_str
                         if hostName[-1] == '.':
                             hostName = hostName[:-1]
-                        reverseCache.set("reverse:" + ipString, hostName, ex=ttl)
+                        reverseCache.set(ipString, hostName, ex=ttl)
 
 def init(id, cfg):
    log_info("pythonmod: init called, module id is %d port: %d script: %s" % (id, cfg.port, cfg.python_script))
