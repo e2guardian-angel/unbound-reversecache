@@ -4,8 +4,8 @@ import redis
 '''
 Python module to store a reverse DNS lookup cache
 '''
-redisHost = ('REDIS_HOST' in os.environ.keys()) ? os.environ['REDIS_HOST'] : 'redis'
-redisPort = ('REDIS_PORT' in os.environ.keys()) ? os.environ['REDIS_PORT'] : 6379
+redisHost = 'redis' if not ('REDIS_HOST' in os.environ.keys()) else os.environ['REDIS_HOST']
+redisPort = 6379 if not ('REDIS_PORT' in os.environ.keys()) else os.environ['REDIS_PORT']
 
 reverseCache = redis.Redis(host=redisHost, port=redisPort, db=0)
 
