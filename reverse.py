@@ -1,5 +1,6 @@
 import os
 import redis
+import ipaddress
 
 MIN_TTL = 90
 '''
@@ -42,6 +43,14 @@ def logDnsMsg(qstate):
                 data = d.rr_data[j]
                 ttl = d.rr_ttl[j]
                 length = bytes_to_int(data[:2])
+                if (rk.type_str == 'AAAA' and length == 16):
+                    hostName = rk.dname_str
+                    if hostName[-1] == '.':
+                        hostName = hostName[:-1]
+                    ip = data[2:]
+                    ip6Long = u"{0:0>2x}{1:0>2x}:{2:0>2x}{3:0>2x}:{4:0>2x}{5:0>2x}:{6:0>2x}{7:0>2x}:{8:0>2x}{9:0>2x}:{10:0>2x}{11:0>2x}:{12:0>2x}{13:0>2x}:{14:0>2x}{15:0>2x}".format(*ip)
+                    ip6Short = str(ipaddress.ip_address(ip6Long).compressed)
+                    reverseCache.set(ip6Short, hostName, ex=ttl)
                 if (rk.type_str == 'CNAME'):
                     hostName = rk.dname_str
                     cname = parse_cname(data[2:])
@@ -49,11 +58,11 @@ def logDnsMsg(qstate):
                         hostName = hostName[:-1]
                     reverseCache.set(cname, hostName, ex=ttl)
                 if (rk.type_str == 'A' and length == 4):
-                    ip = data[2:]
-                    ipString = "{}.{}.{}.{}".format(*ip)
                     hostName = rk.dname_str
                     if hostName[-1] == '.':
                         hostName = hostName[:-1]
+                    ip = data[2:]
+                    ipString = "{}.{}.{}.{}".format(*ip)
                     reverseCache.set(ipString, hostName, ex=ttl)
 
 def init(id, cfg):
