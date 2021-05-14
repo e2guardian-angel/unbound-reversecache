@@ -1,6 +1,7 @@
 import os
 import redis
 
+MIN_TTL = 90
 '''
 Python module to store a reverse DNS lookup cache
 '''
@@ -22,7 +23,6 @@ def logDnsMsg(qstate):
     q  = qstate.return_msg.qinfo
 
     if (r):
-        print("Reply:")
         for i in range(0, r.rrset_count):
             rr = r.rrsets[i]
 
@@ -40,6 +40,8 @@ def logDnsMsg(qstate):
                         hostName = rk.dname_str
                         if hostName[-1] == '.':
                             hostName = hostName[:-1]
+                        if (ttl < MIN_TTL):
+                            ttl = MIN_TTL
                         reverseCache.set(ipString, hostName, ex=ttl)
 
 def init(id, cfg):

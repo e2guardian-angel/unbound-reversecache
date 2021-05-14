@@ -52,9 +52,9 @@ RUN apk add bind-tools \
 
 
 WORKDIR /opt/etc/unbound
-RUN mv unbound.conf unbound.conf.org
 
-COPY unbound.conf .
+RUN mkdir conf
+COPY unbound.conf ./conf
 
 COPY reverse.py .
 
