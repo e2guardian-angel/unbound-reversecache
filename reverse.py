@@ -16,6 +16,17 @@ def bytes_to_int(bytes):
         result = result * 256 + int(b)
     return result
 
+def parse_cname(bytes):
+    i = 0
+    parts = []
+    while(i < len(bytes)):
+        lpart = bytes_to_int(bytes[i:i+1])
+        parts.append(bytes[i+1:i+1+lpart].decode('utf-8'))
+        i = i + lpart + 1
+    while '' in parts:
+        parts.remove('')
+    return '.'.join(parts)
+
 def logDnsMsg(qstate):
     """Logs response"""
 
@@ -25,24 +36,25 @@ def logDnsMsg(qstate):
     if (r):
         for i in range(0, r.rrset_count):
             rr = r.rrsets[i]
-
             rk = rr.rk
-
-            if (rk.type_str == 'A'):
-                d = rr.entry.data
-                for j in range(0, d.count+d.rrsig_count):
-                    data = d.rr_data[j]
-                    ttl = d.rr_ttl[j]
-                    length = bytes_to_int(data[:2])
-                    if (length == 4):
-                        ip = data[2:]
-                        ipString = "{}.{}.{}.{}".format(*ip)
-                        hostName = rk.dname_str
-                        if hostName[-1] == '.':
-                            hostName = hostName[:-1]
-                        if (ttl < MIN_TTL):
-                            ttl = MIN_TTL
-                        reverseCache.set(ipString, hostName, ex=ttl)
+            d = rr.entry.data
+            for j in range(0, d.count+d.rrsig_count):
+                data = d.rr_data[j]
+                ttl = d.rr_ttl[j]
+                length = bytes_to_int(data[:2])
+                if (rk.type_str == 'CNAME'):
+                    hostName = rk.dname_str
+                    cname = parse_cname(data[2:])
+                    if hostName[-1] == '.':
+                        hostName = hostName[:-1]
+                    reverseCache.set(cname, hostName, ex=ttl)
+                if (rk.type_str == 'A' and length == 4):
+                    ip = data[2:]
+                    ipString = "{}.{}.{}.{}".format(*ip)
+                    hostName = rk.dname_str
+                    if hostName[-1] == '.':
+                        hostName = hostName[:-1]
+                    reverseCache.set(ipString, hostName, ex=ttl)
 
 def init(id, cfg):
    log_info("pythonmod: init called, module id is %d port: %d script: %s" % (id, cfg.port, cfg.python_script))
