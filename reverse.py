@@ -11,6 +11,12 @@ redisPort = 6379 if not ('REDIS_PORT' in os.environ.keys()) else os.environ['RED
 
 reverseCache = redis.Redis(host=redisHost, port=redisPort, db=0)
 
+def reverse_cache_store(key, val, ttl):
+    try:
+        reverseCache.set(key, val, ex=ttl)
+    except Exception as e:
+        log_info('Failed storing key="'+str(key)+'" val="'+val+'" ttl="'+str(ttl)+'" : \n'+e.message+'\n')
+
 def bytes_to_int(bytes):
     result = 0
     for b in bytes:
@@ -50,20 +56,23 @@ def logDnsMsg(qstate):
                     ip = data[2:]
                     ip6Long = u"{0:0>2x}{1:0>2x}:{2:0>2x}{3:0>2x}:{4:0>2x}{5:0>2x}:{6:0>2x}{7:0>2x}:{8:0>2x}{9:0>2x}:{10:0>2x}{11:0>2x}:{12:0>2x}{13:0>2x}:{14:0>2x}{15:0>2x}".format(*ip)
                     ip6Short = str(ipaddress.ip_address(ip6Long).compressed)
-                    reverseCache.set(ip6Short, hostName, ex=ttl)
+                    reverse_cache_store(ip6Short, hostName, ttl)
                 if (rk.type_str == 'CNAME'):
                     hostName = rk.dname_str
-                    cname = parse_cname(data[2:])
+                    try:
+                        cname = parse_cname(data[2:])
+                    except:
+                        log_info('Error parsing CNAME for '+hostName+'\n')
                     if hostName[-1] == '.':
                         hostName = hostName[:-1]
-                    reverseCache.set(cname, hostName, ex=ttl)
+                    reverse_cache_store(cname, hostName, ttl)
                 if (rk.type_str == 'A' and length == 4):
                     hostName = rk.dname_str
                     if hostName[-1] == '.':
                         hostName = hostName[:-1]
                     ip = data[2:]
                     ipString = "{}.{}.{}.{}".format(*ip)
-                    reverseCache.set(ipString, hostName, ex=ttl)
+                    reverse_cache_store(ipString, hostName, ttl)
 
 def init(id, cfg):
    log_info("pythonmod: init called, module id is %d port: %d script: %s" % (id, cfg.port, cfg.python_script))
