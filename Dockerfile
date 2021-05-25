@@ -47,6 +47,7 @@ RUN apk add bind-tools \
         python3 \
 	py3-distutils-extra \
 	py3-redis \
+	jq \
 	rsyslog && \
 	rm -rf /var/cache/apk/*
 

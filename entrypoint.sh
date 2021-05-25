@@ -1,4 +1,5 @@
 #!/bin/sh
+GUARDIAN_CONF=/opt/guardian/guardian.json
 
 export REDIS_HOST="redis"
 export REDIS_PORT=6379
