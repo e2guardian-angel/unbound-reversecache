@@ -2,7 +2,7 @@
 # module to demonstrate the --with-pythonmodule functionality.
 # See: https://unbound.net/
 FROM alpine:3.12.1 as builder
-ARG UNBOUND_VERSION=1.9.4
+ARG UNBOUND_VERSION=1.12.0
 ARG PYTHONPATH=/usr/lib/python3.8
 
 RUN apk update && \
@@ -53,9 +53,10 @@ RUN apk add bind-tools \
 
 
 WORKDIR /opt/etc/unbound
-RUN mv unbound.conf unbound.conf.org
 
-COPY unbound.conf .
+RUN mkdir conf
+COPY unbound-safe.conf ./conf
+COPY unbound-unsafe.conf ./conf
 
 COPY reverse.py .
 
