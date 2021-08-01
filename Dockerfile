@@ -29,7 +29,7 @@ RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.
 	./configure --with-pyunbound --with-libevent --with-pythonmodule --prefix=/opt && \
 	make && \
 	make install && \
-        adduser -H -D unbound && \
+        adduser -u 48 -H -D unbound && \
 	chown -R unbound: /opt/etc/unbound/ && \
 	cd /opt && \
 	rm -Rf /opt/unbound*
@@ -37,7 +37,7 @@ RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.
 FROM alpine:3.12.1
 MAINTAINER Justin Schwartzbeck <justinmschw@gmail.com>
 
-RUN adduser -H -D unbound
+RUN adduser -u 48 -H -D unbound
 
 COPY --from=builder /opt /opt
 COPY --from=builder /usr/lib /usr/lib
@@ -69,4 +69,5 @@ EXPOSE 53
 # root@nnn:/usr/local/etc/unbound#: unbound
 # root@nnn:/usr/local/etc/unbound#: dig +noall +answer @127.0.0.1
 # helloworld.  300 IN A 127.0.0.1
+USER unbound
 ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]
