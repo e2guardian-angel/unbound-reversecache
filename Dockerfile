@@ -60,6 +60,7 @@ COPY unbound-unsafe.conf ./conf
 
 COPY reverse.py .
 
+COPY initsafe.py /
 COPY entrypoint.sh /
 
 EXPOSE 53
