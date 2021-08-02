@@ -24,4 +24,7 @@ if [ -f "${GUARDIAN_CONF}" ]; then
     fi
 fi
 
+# Add permanent entries for safe search sites
+python initsafe.py
+
 /opt/sbin/unbound -d -c ${UNBOUND_CONF}
