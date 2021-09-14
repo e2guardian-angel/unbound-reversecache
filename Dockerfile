@@ -57,8 +57,11 @@ WORKDIR /opt/etc/unbound
 RUN mkdir conf
 COPY unbound-safe.conf ./conf
 COPY unbound-unsafe.conf ./conf
+COPY unbound-fwd.conf ./conf
 
 COPY reverse.py .
+
+RUN chown -R unbound:unbound /opt/etc/unbound
 
 COPY initsafe.py /
 COPY entrypoint.sh /
