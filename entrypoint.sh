@@ -19,6 +19,7 @@ if [ -f "${GUARDIAN_CONF}" ]; then
     export REDIS_PORT=$(extract_value "${REDIS_CONF}" port)
     SAFESEARCH=$(extract_value "${CONFIG}" safeSearchEnforced)
     if [ "${FORWARDER}" = "true" ]; then
+	cp $UNBOUND_CONF_FORWARDER.tmpl $UNBOUND_CONF_FORWARDER
 	DNS_IP=$(extract_value "${CONFIG}" dnsIP)
 	sed -i "s~DNS_REVERSE_SVC_IP~$DNS_REVERSE_SERVICE_HOST~g" $UNBOUND_CONF_FORWARDER
         export UNBOUND_CONF=${UNBOUND_CONF_FORWARDER}

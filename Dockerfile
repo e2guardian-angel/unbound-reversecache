@@ -57,7 +57,7 @@ WORKDIR /opt/etc/unbound
 RUN mkdir conf
 COPY unbound-safe.conf ./conf
 COPY unbound-unsafe.conf ./conf
-COPY unbound-fwd.conf ./conf
+COPY unbound-fwd.conf.tmpl ./conf
 
 COPY reverse.py .
 
