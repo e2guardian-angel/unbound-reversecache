@@ -17,7 +17,12 @@
 #include "../../util/module.h"
 #include "../../services/cache/dns.h"
 #include "../../sldns/parseutil.h"
+#include "../../sldns/rrdef.h"
 #include "../dynlibmod.h"
+#include <string.h>
+#include <malloc.h>
+#include <stdio.h>
+#include <arpa/inet.h>
 
 /* Declare the EXPORT macro that expands to exporting the symbol for DLLs when
  * compiling for Windows. All procedures marked with EXPORT in this example are
@@ -58,6 +63,33 @@ EXPORT void deinit(struct module_env* env, int id) {
     if (de->dyn_env != NULL) free(de->dyn_env);
 }
 
+
+char* parse_host_name(uint8_t* dname, unsigned long len) {
+    char* host_name = (char*) malloc(len);
+    char* h_current = host_name;
+    uint8_t* d_current = dname;
+    uint8_t* d_end = (uint8_t*)(dname + len);
+    while (d_current < (dname + len)) {
+        uint8_t plen = *((uint8_t*)d_current);
+        // Prevent buffer overflow;
+        if ((d_current + plen) > d_end) {
+            break;
+        }
+        d_current += 1;
+        // copy this part to the host name
+        strncpy(h_current, (char*)d_current, plen);
+        h_current += plen;
+        d_current += plen;
+        h_current[0] = '.';
+        h_current += 1;
+    }
+    if (h_current > host_name) {
+        h_current -= 1;
+    }
+    h_current[0] = 0;
+    return host_name;
+}
+
 /* Parse reply and cache */
 void parse_dns_reply(struct module_qstate* qstate) {
     struct dns_msg* ret = qstate->return_msg;
@@ -73,13 +105,26 @@ void parse_dns_reply(struct module_qstate* qstate) {
             for (int j = 0; j < (d->count + d->rrsig_count); j++) {
                 uint8_t* data = (uint8_t*)(d->rr_data[j]);
                 time_t ttl = d->ttl;
-                uint16_t length = *((uint16_t*)data);
+                uint16_t length = ntohs(*((uint16_t*)data));
                 
-                // Parse the response
-                char* host_name = (char*) rk.dname;
+                char* host_name = parse_host_name(rk.dname, rk.dname_len);
+
+                int type = ntohs(rk.type);
+
+                if (type == LDNS_RR_TYPE_AAAA && length == 16) {
+                    log_info("Parsing IPv6 Response...");
+                } else if (type == LDNS_RR_TYPE_CNAME) {
+                    log_info("Parsing CNAME response...");
+                    char* cname = parse_host_name(data + 2, length);
+                    log_info("Parsed CNAME: %s ", cname);
+                    free(cname);
+                } else if (type == LDNS_RR_TYPE_A && length == 4) {
+                    log_info("Parsing A response...");
+                }
                 
                 // TODO: parse response based on response type
-                log_info("%s %d %lu %p", host_name, length, ttl, &qinfo);
+                log_info("%s (%d %d %d) %d %d %lu %p", host_name, LDNS_RR_TYPE_A, LDNS_RR_TYPE_CNAME, LDNS_RR_TYPE_AAAA, type, length, ttl, &qinfo);
+                free(host_name);
             }
         }
     }
