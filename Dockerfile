@@ -1,8 +1,6 @@
 FROM alpine:3.12.1 as builder
 ARG UNBOUND_VERSION=1.16.1
 
-COPY reverse.c /opt
-
 RUN apk update && \
 apk add build-base \
 	ca-certificates \
@@ -25,6 +23,8 @@ RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.
 	make install && \
         adduser -u 48 -H -D unbound && \
 	chown -R unbound: /opt/etc/unbound/
+
+COPY reverse.c /opt
 
 RUN cd /opt/unbound-${UNBOUND_VERSION}/dynlibmod/examples && \
 	mv /opt/reverse.c . && \
@@ -54,8 +54,6 @@ RUN mkdir conf
 COPY unbound-safe.conf ./conf
 COPY unbound-unsafe.conf ./conf
 COPY unbound-fwd.conf.tmpl ./conf
-
-COPY reverse.py .
 
 RUN chown -R unbound:unbound /opt/etc/unbound
 

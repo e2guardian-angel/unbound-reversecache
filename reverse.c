@@ -15,6 +15,7 @@
 
 #include "../../config.h"
 #include "../../util/module.h"
+#include "../../services/cache/dns.h"
 #include "../../sldns/parseutil.h"
 #include "../dynlibmod.h"
 
@@ -57,6 +58,33 @@ EXPORT void deinit(struct module_env* env, int id) {
     if (de->dyn_env != NULL) free(de->dyn_env);
 }
 
+/* Parse reply and cache */
+void parse_dns_reply(struct module_qstate* qstate) {
+    struct dns_msg* ret = qstate->return_msg;
+    struct reply_info* r = ret->rep;
+    struct query_info* qinfo = &(ret->qinfo);
+    if (r) {
+        for(int i = 0; i < r->rrset_count; i++) {
+            
+            struct ub_packed_rrset_key* rr = r->rrsets[i];
+            struct packed_rrset_key rk = rr->rk;
+            struct packed_rrset_data* d = (struct packed_rrset_data*) (rr->entry.data);
+
+            for (int j = 0; j < (d->count + d->rrsig_count); j++) {
+                uint8_t* data = (uint8_t*)(d->rr_data[j]);
+                time_t ttl = d->ttl;
+                uint16_t length = *((uint16_t*)data);
+                
+                // Parse the response
+                char* host_name = (char*) rk.dname;
+                
+                // TODO: parse response based on response type
+                log_info("%s %d %lu %p", host_name, length, ttl, &qinfo);
+            }
+        }
+    }
+}
+
 /* Operate is called every time a query passes by this module. The event can be
  * used to determine which direction in the module chain it came from. */
 EXPORT void operate(struct module_qstate* qstate, enum module_ev event,
@@ -81,6 +109,7 @@ EXPORT void operate(struct module_qstate* qstate, enum module_ev event,
             qstate->ext_state[id] = module_error;
         }
     } else if (event == module_event_moddone) {
+        parse_dns_reply(qstate);
         qstate->ext_state[id] = module_finished;
     } else {
         qstate->ext_state[id] = module_error;
