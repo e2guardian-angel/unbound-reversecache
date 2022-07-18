@@ -28,6 +28,8 @@
 #define EXPORT
 #endif
 
+#define MIN_TTL 90
+
 redisContext *c;
 
 /* Forward declare a callback, implemented at the bottom of this file */
@@ -129,6 +131,9 @@ void parse_dns_reply(struct module_qstate* qstate) {
             for (int j = 0; j < (d->count + d->rrsig_count); j++) {
                 uint8_t* data = (uint8_t*)(d->rr_data[j]);
                 time_t ttl = d->ttl;
+                if (ttl < MIN_TTL) {
+                    ttl = MIN_TTL;
+                }
                 uint16_t length = ntohs(*((uint16_t*)data));
                 
                 char* host_name = parse_host_name(rk.dname, rk.dname_len);
@@ -142,12 +147,12 @@ void parse_dns_reply(struct module_qstate* qstate) {
                     reply = redisCommand(c, "SET %s %s EX %lu", ip6_str, host_name, ttl);
                 } else if (type == LDNS_RR_TYPE_CNAME) {
                     char* cname = parse_host_name(data + 2, length);
-                    reply = redisCommand(c, "SET %s %s EX %lu", cname, host_name);
+                    reply = redisCommand(c, "SET %s %s EX %lu", cname, host_name, ttl);
                     free(cname);
                 } else if (type == LDNS_RR_TYPE_A && length == 4) {
                     char* ip4_str = malloc(16);
                     inet_ntop(AF_INET, (in_addr_t*)(data + 2), ip4_str, 16);
-                    reply = redisCommand(c, "SET %s %s EX %lu", ip4_str, host_name);
+                    reply = redisCommand(c, "SET %s %s EX %lu", ip4_str, host_name, ttl);
                 }
                 if (reply) {
                     freeReplyObject(reply);
