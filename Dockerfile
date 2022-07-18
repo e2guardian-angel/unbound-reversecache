@@ -1,38 +1,39 @@
-# This Dockerfile builds Unbound --with-pythonmodule support and includes a simple Hello World style Python
-# module to demonstrate the --with-pythonmodule functionality.
-# See: https://unbound.net/
 FROM alpine:3.12.1 as builder
-ARG UNBOUND_VERSION=1.12.0
-ARG PYTHONPATH=/usr/lib/python3.8
+ARG UNBOUND_VERSION=1.16.1
 
 RUN apk update && \
 apk add build-base \
 	ca-certificates \
 	bind-tools \
 	expat-dev \
+	git \
 	libevent-dev \
-	python3 \
-	python3-dev \
+	hiredis \
+	hiredis-dev \
 	openssl-dev \
-	py3-distutils-extra \
-	py3-redis \
 	rsyslog \
 	swig \
 	wget
 
 
 WORKDIR /opt
+
+COPY reverse.c /opt
+
 RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.tar.gz" && \
-	tar zxvf unbound*.tar.gz && \
+        tar zxvf unbound*.tar.gz && \
 	cd $(find . -type d -name 'unbound*') && \
-	ln -s /usr/bin/python3 /usr/bin/python && \
-	./configure --with-pyunbound --with-libevent --with-pythonmodule --prefix=/opt && \
+	./configure --with-dynlibmodule --prefix=/opt && \
 	make && \
 	make install && \
         adduser -u 48 -H -D unbound && \
 	chown -R unbound: /opt/etc/unbound/ && \
+	cd /opt/unbound-${UNBOUND_VERSION}/dynlibmod/examples && \
+	mv /opt/reverse.c . && \
+	gcc -I/usr/include/hiredis -I../.. -shared -Wall -Werror -fpic  -o reverse.so reverse.c -lhiredis && \
+	cp reverse.so /opt/lib/ && \
 	cd /opt && \
-	rm -Rf /opt/unbound*
+	rm -Rf /opt/unbound
 
 FROM alpine:3.12.1
 MAINTAINER Justin Schwartzbeck <justinmschw@gmail.com>
@@ -43,10 +44,7 @@ COPY --from=builder /opt /opt
 COPY --from=builder /usr/lib /usr/lib
 
 RUN apk add bind-tools \
-        libevent \
-        python3 \
-	py3-distutils-extra \
-	py3-redis \
+    hiredis \
 	jq \
 	rsyslog && \
 	rm -rf /var/cache/apk/*
@@ -58,8 +56,6 @@ RUN mkdir conf
 COPY unbound-safe.conf ./conf
 COPY unbound-unsafe.conf ./conf
 COPY unbound-fwd.conf.tmpl ./conf
-
-COPY reverse.py .
 
 RUN chown -R unbound:unbound /opt/etc/unbound
 
