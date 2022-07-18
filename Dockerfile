@@ -17,6 +17,9 @@ apk add build-base \
 
 
 WORKDIR /opt
+
+COPY reverse.c /opt
+
 RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.tar.gz" && \
         tar zxvf unbound*.tar.gz && \
 	cd $(find . -type d -name 'unbound*') && \
@@ -24,11 +27,8 @@ RUN wget "https://www.nlnetlabs.nl/downloads/unbound/unbound-${UNBOUND_VERSION}.
 	make && \
 	make install && \
         adduser -u 48 -H -D unbound && \
-	chown -R unbound: /opt/etc/unbound/
-
-COPY reverse.c /opt
-
-RUN cd /opt/unbound-${UNBOUND_VERSION}/dynlibmod/examples && \
+	chown -R unbound: /opt/etc/unbound/ && \
+	cd /opt/unbound-${UNBOUND_VERSION}/dynlibmod/examples && \
 	mv /opt/reverse.c . && \
 	gcc -I/usr/include/hiredis -I../.. -shared -Wall -Werror -fpic  -o reverse.so reverse.c -lhiredis && \
 	cp reverse.so /opt/lib/ && \

@@ -1,16 +1,8 @@
 /**
- * \file
  *
- * This is an example to show how dynamic libraries can be made to work with
- * unbound. To build a .so file simply run:
- *   gcc -I../.. -shared -Wall -Werror -fpic  -o helloworld.so helloworld.c
- * And to build for windows, first make unbound with the --with-dynlibmod
- * switch, then use this command:
- *   x86_64-w64-mingw32-gcc -m64 -I../.. -shared -Wall -Werror -fpic
- *      -o helloworld.dll helloworld.c -L../.. -l:libunbound.dll.a
- * to cross-compile a 64-bit Windows DLL.  The libunbound.dll.a is produced
- * by the compile step that makes unbound.exe and allows the dynlib dll to
- * access definitions in unbound.exe.
+ * This is a module that stores a reversed IP => hostname lookup for every
+ * DNS response received by unbound. This is to make it easier for the squid
+ * proxy to identify websites by IP when configured for transparent proxy mode.
  */
 
 #include "../../config.h"
@@ -71,10 +63,8 @@ EXPORT int init(struct module_env* env, int id) {
 
     if (redis_pass) {
         redisReply *reply;
-        char* auth_str = (char*)malloc(strlen(redis_pass)+6);
-        strncpy(auth_str, "AUTH ", 6);
-        strncpy(auth_str+5, redis_pass, strlen(redis_pass));
-        reply = redisCommand(c, auth_str);
+        reply = redisCommand(c, "AUTH %s", redis_pass);
+        log_info("Auth result: %s", reply->str);
         freeReplyObject(reply);
     }
 
@@ -112,9 +102,14 @@ char* parse_host_name(uint8_t* dname, unsigned long len) {
         h_current[0] = '.';
         h_current += 1;
     }
-    if (h_current > host_name) {
-        h_current -= 1;
+    if (h_current - host_name > 1) {
+        h_current -= 2;
     }
+    // eliminate the trailing '.'
+    if (h_current[0] != '.') {
+        h_current += 1;
+    }
+
     h_current[0] = 0;
     return host_name;
 }
@@ -133,28 +128,29 @@ void parse_dns_reply(struct module_qstate* qstate) {
 
             for (int j = 0; j < (d->count + d->rrsig_count); j++) {
                 uint8_t* data = (uint8_t*)(d->rr_data[j]);
-                //time_t ttl = d->ttl;
+                time_t ttl = d->ttl;
                 uint16_t length = ntohs(*((uint16_t*)data));
                 
                 char* host_name = parse_host_name(rk.dname, rk.dname_len);
 
                 int type = ntohs(rk.type);
 
+                redisReply *reply = 0;
                 if (type == LDNS_RR_TYPE_AAAA && length == 16) {
-                    log_info("Parsing IPv6 Response...");
                     char* ip6_str = malloc(46);
                     inet_ntop(AF_INET6, (in_addr_t*)(data + 2), ip6_str, 46);
-                    log_info("IP6 == %s", ip6_str);
+                    reply = redisCommand(c, "SET %s %s EX %lu", ip6_str, host_name, ttl);
                 } else if (type == LDNS_RR_TYPE_CNAME) {
-                    log_info("Parsing CNAME response...");
                     char* cname = parse_host_name(data + 2, length);
-                    log_info("Parsed CNAME: %s ", cname);
+                    reply = redisCommand(c, "SET %s %s EX %lu", cname, host_name);
                     free(cname);
                 } else if (type == LDNS_RR_TYPE_A && length == 4) {
-                    log_info("Parsing A response...");
                     char* ip4_str = malloc(16);
                     inet_ntop(AF_INET, (in_addr_t*)(data + 2), ip4_str, 16);
-                    log_info("IP4 == %s", ip4_str);
+                    reply = redisCommand(c, "SET %s %s EX %lu", ip4_str, host_name);
+                }
+                if (reply) {
+                    freeReplyObject(reply);
                 }
                 
                 free(host_name);
