@@ -8,6 +8,8 @@ apk add build-base \
 	expat-dev \
 	git \
 	libevent-dev \
+	hiredis \
+	hiredis-dev \
 	openssl-dev \
 	rsyslog \
 	swig \
@@ -28,7 +30,7 @@ COPY reverse.c /opt
 
 RUN cd /opt/unbound-${UNBOUND_VERSION}/dynlibmod/examples && \
 	mv /opt/reverse.c . && \
-	gcc -I../.. -shared -Wall -Werror -fpic  -o reverse.so reverse.c && \
+	gcc -I/usr/include/hiredis -I../.. -shared -Wall -Werror -fpic  -o reverse.so reverse.c -lhiredis && \
 	cp reverse.so /opt/lib/ && \
 	cd /opt && \
 	rm -Rf /opt/unbound
@@ -42,7 +44,7 @@ COPY --from=builder /opt /opt
 COPY --from=builder /usr/lib /usr/lib
 
 RUN apk add bind-tools \
-        libevent \
+    hiredis \
 	jq \
 	rsyslog && \
 	rm -rf /var/cache/apk/*
