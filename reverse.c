@@ -55,13 +55,12 @@ EXPORT int init(struct module_env* env, int id) {
 
     c = redisConnect(redis_host, redis_port);
 
-    if (c != NULL && c->err) {
-        log_err("Error connecting to redis: %sn", c->errstr);
-        // handle error
-        return -1;
-    } else {
-        log_info("Connected to redis instance");
+    while (c != NULL && c->err) {
+      log_err("Error connecting to redis: %sn", c->errstr);
+      sleep(1);
+      c = redisConnect(redis_host, redis_port);
     }
+    log_info("Connected to redis instance");
 
     if (redis_pass) {
         redisReply *reply;
