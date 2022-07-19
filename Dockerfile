@@ -57,7 +57,7 @@ COPY unbound-safe.conf ./conf
 COPY unbound-unsafe.conf ./conf
 COPY unbound-fwd.conf.tmpl ./conf
 
-RUN chown -R unbound:unbound /opt/etc/unbound
+RUN chown -R unbound /opt/etc/unbound
 
 COPY initsafe.py /
 COPY entrypoint.sh /
