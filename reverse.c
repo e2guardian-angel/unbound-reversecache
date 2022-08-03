@@ -50,8 +50,14 @@ EXPORT int init(struct module_env* env, int id) {
     local_env->dyn_env = NULL;
 
     const char* redis_host = getenv("REDIS_HOST");
-    uint16_t redis_port = (uint16_t)atoi(getenv("REDIS_PORT"));
+    const char* redis_port_str = getenv("REDIS_PORT");
     const char* redis_pass = getenv("REDIS_PASS");
+
+    if (!redis_host || !redis_port_str) {
+      log_err("Need to set REDIS_HOST and REDIS_PORT variables");
+      return 0;
+    }
+    uint16_t redis_port = (uint16_t)atoi(redis_port_str);
 
     c = redisConnect(redis_host, redis_port);
 
