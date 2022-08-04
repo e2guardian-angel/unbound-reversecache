@@ -7,6 +7,7 @@
 
 #include "../../config.h"
 #include "../../util/module.h"
+#include "../../util/data/dname.h"
 #include "../../services/cache/dns.h"
 #include "../../sldns/parseutil.h"
 #include "../../sldns/rrdef.h"
@@ -70,7 +71,7 @@ EXPORT int init(struct module_env* env, int id) {
 
     if (redis_pass) {
         redisReply *reply;
-        reply = redisCommand(c, "AUTH %s", redis_pass);
+        reply = (redisReply*)redisCommand(c, "AUTH %s", redis_pass);
         log_info("Auth result: %s", reply->str);
         freeReplyObject(reply);
     }
@@ -89,36 +90,11 @@ EXPORT void deinit(struct module_env* env, int id) {
     redisFree(c);
 }
 
-
-char* parse_host_name(uint8_t* dname, unsigned long len) {
-    char* host_name = (char*) malloc(len);
-    char* h_current = host_name;
-    uint8_t* d_current = dname;
-    uint8_t* d_end = (uint8_t*)(dname + len);
-    while (d_current < (dname + len)) {
-        uint8_t plen = *((uint8_t*)d_current);
-        // Prevent buffer overflow;
-        if ((d_current + plen) > d_end) {
-            break;
-        }
-        d_current += 1;
-        // copy this part to the host name
-        strncpy(h_current, (char*)d_current, plen);
-        h_current += plen;
-        d_current += plen;
-        h_current[0] = '.';
-        h_current += 1;
+void trim_dname(char* dname) {
+    int len = strlen(dname);
+    if (len > 1 && dname[len-1] == '.') {
+        dname[len-1] = '\0';
     }
-    if (h_current - host_name > 1) {
-        h_current -= 2;
-    }
-    // eliminate the trailing '.'
-    if (h_current[0] != '.') {
-        h_current += 1;
-    }
-
-    h_current[0] = 0;
-    return host_name;
 }
 
 /* Parse reply and cache */
@@ -127,43 +103,45 @@ void parse_dns_reply(struct module_qstate* qstate) {
     struct reply_info* r = ret->rep;
     //struct query_info* qinfo = &(ret->qinfo);
     if (r) {
-        for(int i = 0; i < r->rrset_count; i++) {
+        for(long unsigned int i = 0; i < r->rrset_count; i++) {
             
             struct ub_packed_rrset_key* rr = r->rrsets[i];
             struct packed_rrset_key rk = rr->rk;
             struct packed_rrset_data* d = (struct packed_rrset_data*) (rr->entry.data);
 
-            for (int j = 0; j < (d->count + d->rrsig_count); j++) {
+            for (long unsigned int j = 0; j < (d->count + d->rrsig_count); j++) {
                 uint8_t* data = (uint8_t*)(d->rr_data[j]);
                 time_t ttl = d->ttl;
                 if (ttl < MIN_TTL) {
                     ttl = MIN_TTL;
                 }
                 uint16_t length = ntohs(*((uint16_t*)data));
-                
-                char* host_name = parse_host_name(rk.dname, rk.dname_len);
+
+                char dname[256];
+                dname_str(rk.dname, dname);
+                trim_dname(dname);
 
                 int type = ntohs(rk.type);
 
                 redisReply *reply = 0;
                 if (type == LDNS_RR_TYPE_AAAA && length == 16) {
-                    char* ip6_str = malloc(46);
+                    char ip6_str[46];
                     inet_ntop(AF_INET6, (in_addr_t*)(data + 2), ip6_str, 46);
-                    reply = redisCommand(c, "SET %s %s EX %lu", ip6_str, host_name, ttl);
+                    reply = (redisReply*)redisCommand(c, "SET %s %s EX %lu", ip6_str, dname, ttl);
                 } else if (type == LDNS_RR_TYPE_CNAME) {
-                    char* cname = parse_host_name(data + 2, length);
-                    reply = redisCommand(c, "SET %s %s EX %lu", cname, host_name, ttl);
-                    free(cname);
+                    char cname[256];
+                    dname_str(data + 2, cname);
+                    trim_dname(cname);
+                    reply = (redisReply*)redisCommand(c, "SET %s %s EX %lu", cname, dname, ttl);
                 } else if (type == LDNS_RR_TYPE_A && length == 4) {
-                    char* ip4_str = malloc(16);
+                    char ip4_str[16];
                     inet_ntop(AF_INET, (in_addr_t*)(data + 2), ip4_str, 16);
-                    reply = redisCommand(c, "SET %s %s EX %lu", ip4_str, host_name, ttl);
+                    reply = (redisReply*)redisCommand(c, "SET %s %s EX %lu", ip4_str, dname, ttl);
                 }
                 if (reply) {
                     freeReplyObject(reply);
                 }
                 
-                free(host_name);
             }
         }
     }
